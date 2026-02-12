@@ -1,0 +1,89 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # v1.0.0 같은 태그가 푸시될 때 실행
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile `
+          --name "MagicLanternTagger" `
+          --icon=NONE `
+          --add-data "magic_lantern.jpeg;." `
+          --console `
+          --clean `
+          auto_tagger.py
+
+    - name: Create Release Package
+      run: |
+        mkdir release
+        copy dist\MagicLanternTagger.exe release\
+        copy magic_lantern.jpeg release\
+        copy README.md release\
+
+    - name: Create ZIP archive
+      run: |
+        Compress-Archive -Path release\* -DestinationPath MagicLanternTagger-Windows.zip
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MagicLanternTagger-Windows
+        path: MagicLanternTagger-Windows.zip
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          MagicLanternTagger-Windows.zip
+          dist/MagicLanternTagger.exe
+        body: |
+          ## 🎵 Yorushika - Magic Lantern Auto Tagger
+
+          ### 다운로드 방법
+
+          **방법 1: 단일 실행 파일** (권장)
+          1. `MagicLanternTagger.exe` 다운로드
+          2. `magic_lantern.jpeg` 다운로드 (또는 ZIP에서 추출)
+          3. 음악 폴더에 두 파일 복사
+          4. `MagicLanternTagger.exe` 실행
+
+          **방법 2: ZIP 패키지**
+          1. `MagicLanternTagger-Windows.zip` 다운로드
+          2. 압축 해제
+          3. 음악 폴더에 파일들 복사
+          4. `MagicLanternTagger.exe` 실행
+
+          ### 요구사항
+          - Windows 10/11
+          - Python 설치 **불필요** ✨
+
+          ### 지원 포맷
+          - MP3, FLAC, M4A/MP4
+
+          자세한 사용법은 README.md를 참고하세요.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

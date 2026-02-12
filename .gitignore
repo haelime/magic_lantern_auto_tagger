@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist-info/
+.eggs/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Music files (for testing)
+*.mp3
+*.flac
+*.m4a
+*.mp4
+*.wav
+*.ogg
+
+# But keep the album cover
+!magic_lantern.jpeg
+
+# Logs
+*.log
