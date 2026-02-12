@@ -11,7 +11,7 @@ from pathlib import Path
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC, TPE2
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC, TPE2, TCOM, TCON
 
 # Album Information
 ALBUM_INFO = {
@@ -20,24 +20,54 @@ ALBUM_INFO = {
     'artist': 'ヨルシカ',
     'year': '2023',
     'genre': 'J-Pop',
+    'composer': 'n-buna',
     'label': 'Universal Music'
 }
 
-# Track List (Digital Edition - 10 tracks)
+# Track List (Artbook Edition - 25 tracks)
+# Chapter 1: Portrait of Summer (夏の肖像)
+# Chapter 2: Dancing Animals (踊る動物)
 TRACKS = {
-    1: {'title': '都落ち', 'title_en': 'Miyakoochi'},
-    2: {'title': 'ブレーメン', 'title_en': 'Bremen'},
-    3: {'title': 'チノカテ', 'title_en': 'Chinokate'},
-    4: {'title': '月に吠える', 'title_en': 'Tsuki ni Hoeru'},
-    5: {'title': '451', 'title_en': '451'},
-    6: {'title': '又三郎', 'title_en': 'Matasaburo'},
-    7: {'title': '老人と海', 'title_en': 'Roujin to Umi'},
-    8: {'title': '左右盲', 'title_en': 'Sayuu Mou'},
-    9: {'title': 'アルジャーノン', 'title_en': 'Algernon'},
-    10: {'title': '第一夜', 'title_en': 'Daiichiya'}
+    # Chapter 1: Portrait of Summer
+    1: {'title': '夏の肖像', 'title_en': 'Natsu no Shouzou'},
+    2: {'title': '都落ち', 'title_en': 'Miyakoochi'},
+    3: {'title': 'ブレーメン', 'title_en': 'Bremen'},
+    4: {'title': 'チノカテ', 'title_en': 'Chinokate'},
+    5: {'title': '雪国', 'title_en': 'Yukiguni'},
+    6: {'title': '月に吠える', 'title_en': 'Tsuki ni Hoeru'},
+    7: {'title': '451', 'title_en': '451'},
+    8: {'title': 'パドドゥ', 'title_en': 'Pas de Deux'},
+    9: {'title': '又三郎', 'title_en': 'Matasaburo'},
+    10: {'title': '靴の花火', 'title_en': 'Kutsu no Hanabi'},
+    11: {'title': '老人と海', 'title_en': 'Roujin to Umi'},
+    12: {'title': 'さよならモルテン', 'title_en': 'Sayonara Molten'},
+    13: {'title': 'いさな', 'title_en': 'Isana'},
+    14: {'title': '左右盲', 'title_en': 'Sayuu Mou'},
+    15: {'title': 'アルジャーノン', 'title_en': 'Algernon'},
+    # Chapter 2: Dancing Animals
+    16: {'title': '第一夜', 'title_en': 'Daiichiya'},
+    17: {'title': '第二夜', 'title_en': 'Dainiya'},
+    18: {'title': '第三夜', 'title_en': 'Daisanya'},
+    19: {'title': '第四夜', 'title_en': 'Daiyonya'},
+    20: {'title': '第五夜', 'title_en': 'Daigoya'},
+    21: {'title': '第六夜', 'title_en': 'Dairokuya'},
+    22: {'title': '第七夜', 'title_en': 'Dainanaya'},
+    23: {'title': '第八夜', 'title_en': 'Daihachiya'},
+    24: {'title': '第九夜', 'title_en': 'Daikyuuya'},
+    25: {'title': '第十夜', 'title_en': 'Daijuuya'}
 }
 
 COVER_IMAGE = 'magic_lantern.jpeg'
+
+
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 def find_track_number(filename):
@@ -48,7 +78,7 @@ def find_track_number(filename):
     match = re.match(r'^0?(\d+)', filename)
     if match:
         track_num = int(match.group(1))
-        if 1 <= track_num <= 10:
+        if 1 <= track_num <= 25:
             return track_num
 
     # Try to match with track titles
@@ -65,11 +95,32 @@ def find_track_number(filename):
 
 def load_cover_image():
     """Load album cover image"""
-    if not os.path.exists(COVER_IMAGE):
-        print(f"⚠ Warning: Cover image '{COVER_IMAGE}' not found!")
+    # Get the correct path for the bundled image (works for both dev and PyInstaller)
+    image_path = get_resource_path(COVER_IMAGE)
+
+    print(f"🔍 Debug: Looking for cover image at: {image_path}")
+    print(f"🔍 Debug: Current working directory: {os.getcwd()}")
+
+    # Check if running as PyInstaller bundle
+    if hasattr(sys, '_MEIPASS'):
+        print(f"🔍 Debug: Running as PyInstaller bundle. _MEIPASS = {sys._MEIPASS}")
+    else:
+        print(f"🔍 Debug: Running as normal Python script")
+
+    if not os.path.exists(image_path):
+        print(f"⚠ Warning: Cover image '{COVER_IMAGE}' not found at {image_path}!")
+        # List files in the directory for debugging
+        try:
+            dir_path = os.path.dirname(image_path) or '.'
+            print(f"🔍 Debug: Files in {dir_path}:")
+            for f in os.listdir(dir_path)[:10]:  # Show first 10 files
+                print(f"  - {f}")
+        except Exception as e:
+            print(f"  Could not list directory: {e}")
         return None
 
-    with open(COVER_IMAGE, 'rb') as f:
+    print(f"✓ Found cover image! Size: {os.path.getsize(image_path)} bytes")
+    with open(image_path, 'rb') as f:
         return f.read()
 
 
@@ -86,16 +137,42 @@ def tag_mp3(filepath, track_num, cover_data):
 
         track_info = TRACKS[track_num]
 
-        # Set metadata
-        audio.tags.add(TIT2(encoding=3, text=track_info['title']))
-        audio.tags.add(TPE1(encoding=3, text=ALBUM_INFO['artist']))
-        audio.tags.add(TPE2(encoding=3, text=ALBUM_INFO['album_artist']))
-        audio.tags.add(TALB(encoding=3, text=ALBUM_INFO['album']))
-        audio.tags.add(TDRC(encoding=3, text=ALBUM_INFO['year']))
-        audio.tags.add(TRCK(encoding=3, text=f"{track_num}/10"))
+        # Debug: Check existing APIC frames before deletion
+        existing_apic = audio.tags.getall('APIC')
+        print(f"  🔍 Before: Found {len(existing_apic)} existing APIC frame(s)")
 
-        # Add album cover
+        # Delete existing tags and set new metadata
+        audio.tags.delall('TIT2')
+        audio.tags.add(TIT2(encoding=3, text=track_info['title']))
+
+        audio.tags.delall('TPE1')
+        audio.tags.add(TPE1(encoding=3, text=ALBUM_INFO['artist']))
+
+        audio.tags.delall('TPE2')
+        audio.tags.add(TPE2(encoding=3, text=ALBUM_INFO['album_artist']))
+
+        audio.tags.delall('TALB')
+        audio.tags.add(TALB(encoding=3, text=ALBUM_INFO['album']))
+
+        audio.tags.delall('TDRC')
+        audio.tags.add(TDRC(encoding=3, text=ALBUM_INFO['year']))
+
+        audio.tags.delall('TRCK')
+        audio.tags.add(TRCK(encoding=3, text=f"{track_num}/25"))
+
+        audio.tags.delall('TCON')
+        audio.tags.add(TCON(encoding=3, text=ALBUM_INFO['genre']))
+
+        audio.tags.delall('TCOM')
+        audio.tags.add(TCOM(encoding=3, text=ALBUM_INFO['composer']))
+
+        # Delete existing album cover and add new one
         if cover_data:
+            # Delete ALL existing APIC frames
+            audio.tags.delall('APIC')
+            print(f"  🔍 Deleted all APIC frames")
+
+            # Add new album cover
             audio.tags.add(
                 APIC(
                     encoding=3,
@@ -105,11 +182,24 @@ def tag_mp3(filepath, track_num, cover_data):
                     data=cover_data
                 )
             )
+            print(f"  ✓ Added new album cover ({len(cover_data)} bytes)")
 
-        audio.save()
+        # Save with ID3v2.3 for better compatibility
+        audio.save(v2_version=3)
+        print(f"  💾 Saved with ID3v2.3 format")
+
+        # Verify: Read file again and check if cover was saved
+        verify_audio = MP3(filepath, ID3=ID3)
+        verify_apic = verify_audio.tags.getall('APIC')
+        print(f"  ✅ Verification: Found {len(verify_apic)} APIC frame(s) after save")
+        if verify_apic:
+            print(f"  ✅ Cover size in file: {len(verify_apic[0].data)} bytes")
+
         return True
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -120,6 +210,10 @@ def tag_flac(filepath, track_num, cover_data):
 
         track_info = TRACKS[track_num]
 
+        # Debug: Check existing pictures
+        existing_pics = audio.pictures
+        print(f"  🔍 Before: Found {len(existing_pics)} existing picture(s)")
+
         # Set metadata
         audio['TITLE'] = track_info['title']
         audio['ARTIST'] = ALBUM_INFO['artist']
@@ -127,25 +221,39 @@ def tag_flac(filepath, track_num, cover_data):
         audio['ALBUM'] = ALBUM_INFO['album']
         audio['DATE'] = ALBUM_INFO['year']
         audio['TRACKNUMBER'] = str(track_num)
-        audio['TRACKTOTAL'] = '10'
+        audio['TRACKTOTAL'] = '25'
         audio['GENRE'] = ALBUM_INFO['genre']
+        audio['COMPOSER'] = ALBUM_INFO['composer']
 
         # Add album cover
         if cover_data:
+            # Clear existing pictures
+            audio.clear_pictures()
+            print(f"  🔍 Cleared all existing pictures")
+
             picture = Picture()
             picture.type = 3  # Cover (front)
             picture.mime = 'image/jpeg'
             picture.desc = 'Cover'
             picture.data = cover_data
-
-            # Clear existing pictures
-            audio.clear_pictures()
             audio.add_picture(picture)
+            print(f"  ✓ Added new album cover ({len(cover_data)} bytes)")
 
         audio.save()
+        print(f"  💾 Saved FLAC file")
+
+        # Verify
+        verify_audio = FLAC(filepath)
+        verify_pics = verify_audio.pictures
+        print(f"  ✅ Verification: Found {len(verify_pics)} picture(s) after save")
+        if verify_pics:
+            print(f"  ✅ Cover size in file: {len(verify_pics[0].data)} bytes")
+
         return True
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -156,23 +264,45 @@ def tag_m4a(filepath, track_num, cover_data):
 
         track_info = TRACKS[track_num]
 
+        # Debug: Check existing cover
+        existing_cover = audio.get('covr', [])
+        print(f"  🔍 Before: Found {len(existing_cover)} existing cover(s)")
+
         # Set metadata
         audio['\xa9nam'] = track_info['title']
         audio['\xa9ART'] = ALBUM_INFO['artist']
         audio['aART'] = ALBUM_INFO['album_artist']
         audio['\xa9alb'] = ALBUM_INFO['album']
         audio['\xa9day'] = ALBUM_INFO['year']
-        audio['trkn'] = [(track_num, 10)]
+        audio['trkn'] = [(track_num, 25)]
         audio['\xa9gen'] = ALBUM_INFO['genre']
+        audio['\xa9wrt'] = ALBUM_INFO['composer']
 
         # Add album cover
         if cover_data:
+            # Delete existing cover and set new one
+            if 'covr' in audio:
+                del audio['covr']
+                print(f"  🔍 Deleted existing cover")
+
             audio['covr'] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_JPEG)]
+            print(f"  ✓ Added new album cover ({len(cover_data)} bytes)")
 
         audio.save()
+        print(f"  💾 Saved M4A/MP4 file")
+
+        # Verify
+        verify_audio = MP4(filepath)
+        verify_cover = verify_audio.get('covr', [])
+        print(f"  ✅ Verification: Found {len(verify_cover)} cover(s) after save")
+        if verify_cover:
+            print(f"  ✅ Cover size in file: {len(verify_cover[0])} bytes")
+
         return True
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

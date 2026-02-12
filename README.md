@@ -10,18 +10,36 @@
 - 💿 **다양한 포맷 지원**: MP3, FLAC, M4A/MP4 파일 지원
 - 🚀 **원클릭 실행**: Python 설치 없이 .exe 파일만으로 실행 가능
 
-## 📋 지원 트랙리스트 (디지털 에디션)
+## 📋 지원 트랙리스트 (아트북 에디션 - 25곡)
 
-1. 都落ち (Miyakoochi)
-2. ブレーメン (Bremen)
-3. チノカテ (Chinokate)
-4. 月に吠える (Tsuki ni Hoeru)
-5. 451
-6. 又三郎 (Matasaburo)
-7. 老人と海 (Roujin to Umi)
-8. 左右盲 (Sayuu Mou)
-9. アルジャーノン (Algernon)
-10. 第一夜 (Daiichiya)
+### 第1章：夏の肖像 (Chapter 1: Portrait of Summer)
+1. 夏の肖像 (Natsu no Shouzou)
+2. 都落ち (Miyakoochi)
+3. ブレーメン (Bremen)
+4. チノカテ (Chinokate)
+5. 雪国 (Yukiguni)
+6. 月に吠える (Tsuki ni Hoeru)
+7. 451
+8. パドドゥ (Pas de Deux)
+9. 又三郎 (Matasaburo)
+10. 靴の花火 (Kutsu no Hanabi)
+11. 老人と海 (Roujin to Umi)
+12. さよならモルテン (Sayonara Molten)
+13. いさな (Isana)
+14. 左右盲 (Sayuu Mou)
+15. アルジャーノン (Algernon)
+
+### 第2章：踊る動物 (Chapter 2: Dancing Animals)
+16. 第一夜 (Daiichiya)
+17. 第二夜 (Dainiya)
+18. 第三夜 (Daisanya)
+19. 第四夜 (Daiyonya)
+20. 第五夜 (Daigoya)
+21. 第六夜 (Dairokuya)
+22. 第七夜 (Dainanaya)
+23. 第八夜 (Daihachiya)
+24. 第九夜 (Daikyuuya)
+25. 第十夜 (Daijuuya)
 
 ## 🚀 빠른 시작
 
@@ -95,12 +113,16 @@
 빌드하지 않고 Python으로 직접 실행하려면:
 
 ```bash
-# 의존성 설치
-pip install -r requirements.txt
+# 방법 1: uv 사용 (권장 - 매우 빠름!)
+uv pip install -r requirements.txt
+python auto_tagger.py
 
-# 실행
+# 방법 2: pip 사용 (전통적인 방법)
+pip install -r requirements.txt
 python auto_tagger.py
 ```
+
+> 💡 **Tip**: [uv](https://github.com/astral-sh/uv)는 Rust로 작성된 초고속 Python 패키지 관리 도구입니다. pip보다 10-100배 빠릅니다!
 
 ### 로컬에서 직접 빌드하기
 
@@ -110,13 +132,28 @@ GitHub Actions 대신 로컬에서 빌드하려면:
 - Windows 10/11
 - Python 3.8 이상 ([다운로드](https://www.python.org/downloads/))
   - ⚠️ 설치 시 **"Add Python to PATH"** 체크 필수!
+- uv (선택사항, 하지만 강력 권장)
 
 #### 빌드 실행
-```bash
-# 방법 1: 배치 파일 사용
-build.bat
 
-# 방법 2: 수동 빌드
+**방법 1: 배치 파일 사용 (가장 쉬움)**
+```bash
+build.bat
+```
+> `build.bat`는 uv가 없으면 자동으로 설치한 후 빌드합니다!
+
+**방법 2: uv로 수동 빌드 (빠름)**
+```bash
+# uv 설치 (Windows)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 의존성 설치 및 빌드
+uv pip install -r requirements.txt
+pyinstaller --onefile --name "MagicLanternTagger" --add-data "magic_lantern.jpeg;." auto_tagger.py
+```
+
+**방법 3: pip로 수동 빌드 (전통적)**
+```bash
 pip install -r requirements.txt
 pyinstaller --onefile --name "MagicLanternTagger" --add-data "magic_lantern.jpeg;." auto_tagger.py
 ```
@@ -128,6 +165,7 @@ pyinstaller --onefile --name "MagicLanternTagger" --add-data "magic_lantern.jpeg
 이 프로젝트는 GitHub Actions를 통해 자동으로 빌드됩니다:
 
 - **트리거**: 태그 푸시 시 (`v1.0.0` 같은 형식)
+- **빌드 도구**: uv를 사용한 초고속 빌드 ⚡
 - **결과물**: Windows .exe 파일
 - **배포**: GitHub Releases에 자동 업로드
 
@@ -136,6 +174,8 @@ pyinstaller --onefile --name "MagicLanternTagger" --add-data "magic_lantern.jpeg
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+> 💡 GitHub Actions에서는 uv를 사용하여 의존성을 매우 빠르게 설치합니다 (pip 대비 10-100배 빠름)
 
 ### 프로젝트 구조
 

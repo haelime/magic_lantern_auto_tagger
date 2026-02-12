@@ -1,26 +1,43 @@
 @echo off
 chcp 65001 >nul
 echo ======================================================================
-echo   Magic Lantern Auto Tagger - Build Script
+echo   Magic Lantern Auto Tagger - Build Script (with uv)
 echo ======================================================================
 echo.
 
-REM Check if Python is installed
-python --version >nul 2>&1
+REM Check if uv is installed
+uv --version >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH!
+    echo [INFO] uv is not installed. Installing uv...
     echo.
-    echo Please install Python from: https://www.python.org/downloads/
-    echo Make sure to check "Add Python to PATH" during installation.
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] Failed to install uv!
+        echo Please install manually from: https://github.com/astral-sh/uv
+        echo.
+        pause
+        exit /b 1
+    )
+    echo [SUCCESS] uv installed successfully!
     echo.
-    pause
-    exit /b 1
 )
 
-echo [1/3] Installing dependencies...
+echo [1/4] Creating virtual environment...
 echo.
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+if not exist ".venv" (
+    uv venv
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] Failed to create virtual environment!
+        pause
+        exit /b 1
+    )
+)
+
+echo [2/4] Installing dependencies with uv (fast!)...
+echo.
+uv pip install -r requirements.txt
 if errorlevel 1 (
     echo.
     echo [ERROR] Failed to install dependencies!
@@ -30,7 +47,7 @@ if errorlevel 1 (
 
 echo.
 echo ======================================================================
-echo [2/3] Building executable with PyInstaller...
+echo [3/4] Building executable with PyInstaller...
 echo ======================================================================
 echo.
 
@@ -39,8 +56,8 @@ if exist "build" rmdir /s /q "build"
 if exist "dist" rmdir /s /q "dist"
 if exist "*.spec" del /q "*.spec"
 
-REM Build with PyInstaller
-pyinstaller --onefile ^
+REM Build with PyInstaller (using uv run to use the virtual environment)
+uv run pyinstaller --onefile ^
     --name "MagicLanternTagger" ^
     --icon=NONE ^
     --add-data "magic_lantern.jpeg;." ^
@@ -57,7 +74,7 @@ if errorlevel 1 (
 
 echo.
 echo ======================================================================
-echo [3/3] Build completed successfully!
+echo [4/4] Build completed successfully!
 echo ======================================================================
 echo.
 echo Executable location: dist\MagicLanternTagger.exe
