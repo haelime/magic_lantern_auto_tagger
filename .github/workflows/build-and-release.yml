@@ -91,7 +91,7 @@ jobs:
           dist/ffmpeg-LICENSE
           dist/ffmpeg-README.txt
         body: |
-          ## Yorushika - Magic Lantern Auto Tagger v1.1.0
+          ## Yorushika - Magic Lantern Auto Tagger v1.1.1
 
           ### Package contents
           - `MagicLanternTagger.exe`
@@ -104,7 +104,7 @@ jobs:
           1. Copy `MagicLanternTagger.exe` and `ffmpeg.exe` to the folder containing your music files.
           2. Keep `README.md`, `ffmpeg-LICENSE`, and `ffmpeg-README.txt` with the distribution.
           3. Run `MagicLanternTagger.exe`.
-          4. WAV files keep their original file and also create an MP3 copy in the `mp3` subfolder.
+          4. WAV files keep their original file and also create an MP3 copy in the `mp3` subfolder and a FLAC copy in the `flac` subfolder.
 
           ### Supported formats
           - MP3

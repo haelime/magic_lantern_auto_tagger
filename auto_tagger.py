@@ -69,6 +69,7 @@ TRACK_ALIASES = {
 
 COVER_IMAGE = 'magic_lantern.jpeg'
 MP3_OUTPUT_DIR = 'mp3'
+FLAC_OUTPUT_DIR = 'flac'
 
 
 def get_resource_path(relative_path):
@@ -181,6 +182,16 @@ def get_mp3_output_path(filepath):
     return os.path.join(output_dir, f"{stem}.mp3")
 
 
+def get_flac_output_path(filepath):
+    """Build the generated FLAC output path for a WAV source file."""
+    source_dir = os.path.dirname(filepath)
+    output_dir = os.path.join(source_dir, FLAC_OUTPUT_DIR)
+    os.makedirs(output_dir, exist_ok=True)
+
+    stem = os.path.splitext(os.path.basename(filepath))[0]
+    return os.path.join(output_dir, f"{stem}.flac")
+
+
 def convert_wav_to_mp3(filepath, ffmpeg_path):
     """Convert a WAV file into an MP3 copy in the mp3 subfolder."""
     if not ffmpeg_path:
@@ -226,6 +237,53 @@ def convert_wav_to_mp3(filepath, ffmpeg_path):
         return None
 
     print("  ✓ MP3 copy created")
+    return output_path
+
+
+def convert_wav_to_flac(filepath, ffmpeg_path):
+    """Convert a WAV file into a FLAC copy in the flac subfolder."""
+    if not ffmpeg_path:
+        print("  ??ffmpeg not found. Place ffmpeg.exe next to the app or install ffmpeg in PATH.")
+        return None
+
+    output_path = get_flac_output_path(filepath)
+    print(f"  ??Creating FLAC copy: {output_path}")
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    command = [
+        ffmpeg_path,
+        '-y',
+        '-i', filepath,
+        '-vn',
+        '-map_metadata', '-1',
+        '-codec:a', 'flac',
+        output_path,
+    ]
+
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+        )
+    except Exception as e:
+        print(f"  ??Failed to start ffmpeg: {e}")
+        return None
+
+    if completed.returncode != 0:
+        print("  ??ffmpeg conversion failed.")
+        if completed.stderr.strip():
+            print(completed.stderr.strip())
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return None
+
+    print("  ??FLAC copy created")
     return output_path
 
 
@@ -487,7 +545,7 @@ def tag_m4a(filepath, track_num, cover_data):
         return False
 
 
-def process_file(filepath, cover_data, ffmpeg_path=None):
+def _process_file_legacy(filepath, cover_data, ffmpeg_path=None):
     """Process a single music file"""
     filename = os.path.basename(filepath)
     ext = os.path.splitext(filename)[1].lower()
@@ -525,6 +583,51 @@ def process_file(filepath, cover_data, ffmpeg_path=None):
 
     if success:
         print(f"  ✓ Successfully tagged!")
+
+    return success
+
+
+def process_file(filepath, cover_data, ffmpeg_path=None):
+    """Process a single music file."""
+    filename = os.path.basename(filepath)
+    ext = os.path.splitext(filename)[1].lower()
+
+    track_num = find_track_number(filename)
+    if track_num is None:
+        print(f"??Skipped: {filename} (could not determine track number)")
+        return False
+
+    track_info = TRACKS[track_num]
+    print(f"??Processing: {filename}")
+    print(f"  ??Track {track_num}: {track_info['title']} ({track_info['title_en']})")
+
+    success = False
+    if ext == '.mp3':
+        success = tag_mp3(filepath, track_num, cover_data)
+    elif ext == '.wav':
+        wav_success = tag_wav(filepath, track_num, cover_data)
+        mp3_path = convert_wav_to_mp3(filepath, ffmpeg_path)
+        flac_path = convert_wav_to_flac(filepath, ffmpeg_path)
+        if not mp3_path or not flac_path:
+            return False
+
+        print(f"  ??Tagging generated MP3: {os.path.basename(mp3_path)}")
+        mp3_success = tag_mp3(mp3_path, track_num, cover_data)
+
+        print(f"  ??Tagging generated FLAC: {os.path.basename(flac_path)}")
+        flac_success = tag_flac(flac_path, track_num, cover_data)
+
+        success = wav_success and mp3_success and flac_success
+    elif ext == '.flac':
+        success = tag_flac(filepath, track_num, cover_data)
+    elif ext in ['.m4a', '.mp4']:
+        success = tag_m4a(filepath, track_num, cover_data)
+    else:
+        print(f"  ??Unsupported format: {ext}")
+        return False
+
+    if success:
+        print(f"  ??Successfully tagged!")
 
     return success
 
