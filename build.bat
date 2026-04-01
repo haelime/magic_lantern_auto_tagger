@@ -81,7 +81,8 @@ copy ffmpeg-README.txt dist\ffmpeg-README.txt >nul
 powershell -NoProfile -Command ^
     "$cmd = Get-Command ffmpeg -ErrorAction Stop; " ^
     "$item = Get-Item $cmd.Source -Force; " ^
-    "$ffmpegPath = if ($item.Target) { $item.Target[0] } else { $item.FullName }; " ^
+    "$ffmpegPath = if ($item.Target) { $item.Target[0] } elseif ($item.DirectoryName -like '*\chocolatey\bin') { Join-Path $env:ChocolateyInstall 'lib\ffmpeg\tools\ffmpeg\bin\ffmpeg.exe' } else { $item.FullName }; " ^
+    "if (-not (Test-Path $ffmpegPath)) { throw ('Resolved ffmpeg binary not found: ' + $ffmpegPath) }; " ^
     "Copy-Item -LiteralPath $ffmpegPath -Destination 'dist\ffmpeg.exe' -Force"
 
 if errorlevel 1 (
