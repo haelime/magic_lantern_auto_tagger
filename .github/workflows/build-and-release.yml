@@ -3,8 +3,8 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # v1.0.0 같은 태그가 푸시될 때 실행
-  workflow_dispatch:  # 수동 실행 가능
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: "3.11"
 
     - name: Install uv
       uses: astral-sh/setup-uv@v4
@@ -43,12 +43,33 @@ jobs:
           --clean `
           auto_tagger.py
 
+    - name: Install ffmpeg
+      run: |
+        choco install ffmpeg -y
+
+    - name: Copy ffmpeg distribution files
+      run: |
+        $cmd = Get-Command ffmpeg -ErrorAction Stop
+        $item = Get-Item $cmd.Source -Force
+        $ffmpegPath = if ($item.Target) { $item.Target[0] } else { $item.FullName }
+        $ffmpegRoot = Split-Path (Split-Path $ffmpegPath -Parent) -Parent
+        copy $ffmpegPath dist\ffmpeg.exe
+        copy README.md dist\README.md
+        foreach ($name in @("LICENSE", "README.txt")) {
+          $src = Join-Path $ffmpegRoot $name
+          if (Test-Path $src) {
+            copy $src (Join-Path "dist" ("ffmpeg-" + $name))
+          }
+        }
+
     - name: Create Release Package
       run: |
         mkdir release
         copy dist\MagicLanternTagger.exe release\
-        copy magic_lantern.jpeg release\
-        copy README.md release\
+        copy dist\ffmpeg.exe release\
+        copy dist\README.md release\
+        copy dist\ffmpeg-LICENSE release\
+        copy dist\ffmpeg-README.txt release\
 
     - name: Create ZIP archive
       run: |
@@ -67,31 +88,33 @@ jobs:
         files: |
           MagicLanternTagger-Windows.zip
           dist/MagicLanternTagger.exe
+          dist/ffmpeg.exe
+          dist/README.md
+          dist/ffmpeg-LICENSE
+          dist/ffmpeg-README.txt
         body: |
-          ## 🎵 Yorushika - Magic Lantern Auto Tagger
+          ## Yorushika - Magic Lantern Auto Tagger v1.1.0
 
-          ### 다운로드 방법
+          ### Package contents
+          - `MagicLanternTagger.exe`
+          - `ffmpeg.exe`
+          - `README.md`
+          - `ffmpeg-LICENSE`
+          - `ffmpeg-README.txt`
 
-          **방법 1: 단일 실행 파일** (권장)
-          1. `MagicLanternTagger.exe` 다운로드
-          2. `magic_lantern.jpeg` 다운로드 (또는 ZIP에서 추출)
-          3. 음악 폴더에 두 파일 복사
-          4. `MagicLanternTagger.exe` 실행
+          ### Usage
+          1. Copy `MagicLanternTagger.exe` and `ffmpeg.exe` to the folder containing your music files.
+          2. Keep `README.md`, `ffmpeg-LICENSE`, and `ffmpeg-README.txt` with the distribution.
+          3. Run `MagicLanternTagger.exe`.
+          4. WAV files keep their original file and also create an MP3 copy in the `mp3` subfolder.
 
-          **방법 2: ZIP 패키지**
-          1. `MagicLanternTagger-Windows.zip` 다운로드
-          2. 압축 해제
-          3. 음악 폴더에 파일들 복사
-          4. `MagicLanternTagger.exe` 실행
+          ### Supported formats
+          - MP3
+          - FLAC
+          - M4A/MP4
+          - WAV
 
-          ### 요구사항
-          - Windows 10/11
-          - Python 설치 **불필요** ✨
-
-          ### 지원 포맷
-          - MP3, FLAC, M4A/MP4
-
-          자세한 사용법은 README.md를 참고하세요.
+          See `README.md` for more details.
         draft: false
         prerelease: false
       env:

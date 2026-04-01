@@ -30,6 +30,8 @@ Thumbs.db
 desktop.ini
 
 # Music files (for testing)
+musics/
+mp3/
 *.mp3
 *.flac
 *.m4a

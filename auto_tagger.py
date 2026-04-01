@@ -6,11 +6,15 @@ Automatically adds metadata and album cover to music files
 """
 
 import os
+import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
+from mutagen.wave import WAVE
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TRCK, APIC, TPE2, TCOM, TCON
 
 # Album Information
@@ -57,7 +61,14 @@ TRACKS = {
     25: {'title': '第十夜', 'title_en': 'Daijuuya'}
 }
 
+TRACK_ALIASES = {
+    10: ['KutsunoHanabi Re Recording'],
+    24: ['Daikyuya'],
+    25: ['Daijuya'],
+}
+
 COVER_IMAGE = 'magic_lantern.jpeg'
+MP3_OUTPUT_DIR = 'mp3'
 
 
 def get_resource_path(relative_path):
@@ -70,12 +81,28 @@ def get_resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+def get_app_path(*parts):
+    """Return a path relative to the executable/script directory."""
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, *parts)
+
+
+def normalize_filename(value):
+    """Normalize English filename variants for fuzzy track matching."""
+    return re.sub(r'[^a-z0-9]+', '', value.lower())
+
+
 def find_track_number(filename):
     """Extract track number from filename"""
-    import re
+    filename = os.path.basename(filename)
+    stem = os.path.splitext(filename)[0]
+    normalized_stem = normalize_filename(stem)
 
     # Try to find track number at the beginning of filename
-    match = re.match(r'^0?(\d+)', filename)
+    match = re.match(r'^0?(\d+)', stem)
     if match:
         track_num = int(match.group(1))
         if 1 <= track_num <= 25:
@@ -86,9 +113,20 @@ def find_track_number(filename):
     for track_num, track_info in TRACKS.items():
         title = track_info['title']
         title_en = track_info['title_en'].lower()
+        normalized_title_en = normalize_filename(track_info['title_en'])
 
-        if title in filename or title_en in filename_lower:
+        if (
+            title in filename
+            or title_en in filename_lower
+            or normalized_title_en == normalized_stem
+            or normalized_title_en in normalized_stem
+        ):
             return track_num
+
+        for alias in TRACK_ALIASES.get(track_num, []):
+            normalized_alias = normalize_filename(alias)
+            if normalized_alias == normalized_stem or normalized_alias in normalized_stem:
+                return track_num
 
     return None
 
@@ -122,6 +160,73 @@ def load_cover_image():
     print(f"✓ Found cover image! Size: {os.path.getsize(image_path)} bytes")
     with open(image_path, 'rb') as f:
         return f.read()
+
+
+def find_ffmpeg():
+    """Locate ffmpeg next to the app first, then fall back to PATH."""
+    local_ffmpeg = get_app_path('ffmpeg.exe')
+    if os.path.exists(local_ffmpeg):
+        return local_ffmpeg
+
+    return shutil.which('ffmpeg')
+
+
+def get_mp3_output_path(filepath):
+    """Build the generated MP3 output path for a WAV source file."""
+    source_dir = os.path.dirname(filepath)
+    output_dir = os.path.join(source_dir, MP3_OUTPUT_DIR)
+    os.makedirs(output_dir, exist_ok=True)
+
+    stem = os.path.splitext(os.path.basename(filepath))[0]
+    return os.path.join(output_dir, f"{stem}.mp3")
+
+
+def convert_wav_to_mp3(filepath, ffmpeg_path):
+    """Convert a WAV file into an MP3 copy in the mp3 subfolder."""
+    if not ffmpeg_path:
+        print("  ✗ ffmpeg not found. Place ffmpeg.exe next to the app or install ffmpeg in PATH.")
+        return None
+
+    output_path = get_mp3_output_path(filepath)
+    print(f"  → Creating MP3 copy: {output_path}")
+
+    if os.path.exists(output_path):
+        os.remove(output_path)
+
+    command = [
+        ffmpeg_path,
+        '-y',
+        '-i', filepath,
+        '-vn',
+        '-map_metadata', '-1',
+        '-codec:a', 'libmp3lame',
+        '-b:a', '320k',
+        output_path,
+    ]
+
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+        )
+    except Exception as e:
+        print(f"  ✗ Failed to start ffmpeg: {e}")
+        return None
+
+    if completed.returncode != 0:
+        print("  ✗ ffmpeg conversion failed.")
+        if completed.stderr.strip():
+            print(completed.stderr.strip())
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return None
+
+    print("  ✓ MP3 copy created")
+    return output_path
 
 
 def tag_mp3(filepath, track_num, cover_data):
@@ -198,6 +303,82 @@ def tag_mp3(filepath, track_num, cover_data):
         return True
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def tag_wav(filepath, track_num, cover_data):
+    """Add metadata to WAV file using ID3 tags"""
+    try:
+        audio = WAVE(filepath)
+
+        # Add ID3 tag if not exists
+        try:
+            audio.add_tags()
+        except:
+            pass
+
+        track_info = TRACKS[track_num]
+
+        # Debug: Check existing APIC frames before deletion
+        existing_apic = audio.tags.getall('APIC')
+        print(f"  ?뵇 Before: Found {len(existing_apic)} existing APIC frame(s)")
+
+        # Delete existing tags and set new metadata
+        audio.tags.delall('TIT2')
+        audio.tags.add(TIT2(encoding=3, text=track_info['title']))
+
+        audio.tags.delall('TPE1')
+        audio.tags.add(TPE1(encoding=3, text=ALBUM_INFO['artist']))
+
+        audio.tags.delall('TPE2')
+        audio.tags.add(TPE2(encoding=3, text=ALBUM_INFO['album_artist']))
+
+        audio.tags.delall('TALB')
+        audio.tags.add(TALB(encoding=3, text=ALBUM_INFO['album']))
+
+        audio.tags.delall('TDRC')
+        audio.tags.add(TDRC(encoding=3, text=ALBUM_INFO['year']))
+
+        audio.tags.delall('TRCK')
+        audio.tags.add(TRCK(encoding=3, text=f"{track_num}/25"))
+
+        audio.tags.delall('TCON')
+        audio.tags.add(TCON(encoding=3, text=ALBUM_INFO['genre']))
+
+        audio.tags.delall('TCOM')
+        audio.tags.add(TCOM(encoding=3, text=ALBUM_INFO['composer']))
+
+        # Delete existing album cover and add new one
+        if cover_data:
+            audio.tags.delall('APIC')
+            print(f"  ?뵇 Deleted all APIC frames")
+
+            audio.tags.add(
+                APIC(
+                    encoding=3,
+                    mime='image/jpeg',
+                    type=3,  # Cover (front)
+                    desc='Cover',
+                    data=cover_data
+                )
+            )
+            print(f"  ??Added new album cover ({len(cover_data)} bytes)")
+
+        audio.save()
+        print(f"  ?뮶 Saved WAV file with ID3 tags")
+
+        # Verify: Read file again and check if cover was saved
+        verify_audio = WAVE(filepath)
+        verify_apic = verify_audio.tags.getall('APIC')
+        print(f"  ??Verification: Found {len(verify_apic)} APIC frame(s) after save")
+        if verify_apic:
+            print(f"  ??Cover size in file: {len(verify_apic[0].data)} bytes")
+
+        return True
+    except Exception as e:
+        print(f"  ??Error: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -306,7 +487,7 @@ def tag_m4a(filepath, track_num, cover_data):
         return False
 
 
-def process_file(filepath, cover_data):
+def process_file(filepath, cover_data, ffmpeg_path=None):
     """Process a single music file"""
     filename = os.path.basename(filepath)
     ext = os.path.splitext(filename)[1].lower()
@@ -325,6 +506,15 @@ def process_file(filepath, cover_data):
     success = False
     if ext == '.mp3':
         success = tag_mp3(filepath, track_num, cover_data)
+    elif ext == '.wav':
+        wav_success = tag_wav(filepath, track_num, cover_data)
+        mp3_path = convert_wav_to_mp3(filepath, ffmpeg_path)
+        if not mp3_path:
+            return False
+
+        print(f"  → Tagging generated MP3: {os.path.basename(mp3_path)}")
+        mp3_success = tag_mp3(mp3_path, track_num, cover_data)
+        success = wav_success and mp3_success
     elif ext == '.flac':
         success = tag_flac(filepath, track_num, cover_data)
     elif ext in ['.m4a', '.mp4']:
@@ -350,6 +540,13 @@ def main():
     print(f"Working directory: {current_dir}")
     print()
 
+    ffmpeg_path = find_ffmpeg()
+    if ffmpeg_path:
+        print(f"ffmpeg: {ffmpeg_path}")
+    else:
+        print("ffmpeg: not found")
+    print()
+
     # Load cover image
     print("Loading album cover...")
     cover_data = load_cover_image()
@@ -358,7 +555,7 @@ def main():
     print()
 
     # Find music files
-    supported_formats = ['.mp3', '.flac', '.m4a', '.mp4']
+    supported_formats = ['.mp3', '.flac', '.m4a', '.mp4', '.wav']
     music_files = []
 
     for file in os.listdir(current_dir):
@@ -383,7 +580,7 @@ def main():
     success_count = 0
     for file in music_files:
         filepath = os.path.join(current_dir, file)
-        if process_file(filepath, cover_data):
+        if process_file(filepath, cover_data, ffmpeg_path):
             success_count += 1
         print()
 
