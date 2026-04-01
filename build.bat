@@ -76,13 +76,13 @@ echo.
 echo [4/5] Copying ffmpeg and license files...
 echo.
 copy README.md dist\README.md >nul
+copy ffmpeg-LICENSE dist\ffmpeg-LICENSE >nul
+copy ffmpeg-README.txt dist\ffmpeg-README.txt >nul
 powershell -NoProfile -Command ^
     "$cmd = Get-Command ffmpeg -ErrorAction Stop; " ^
     "$item = Get-Item $cmd.Source -Force; " ^
     "$ffmpegPath = if ($item.Target) { $item.Target[0] } else { $item.FullName }; " ^
-    "$ffmpegRoot = Split-Path (Split-Path $ffmpegPath -Parent) -Parent; " ^
-    "Copy-Item -LiteralPath $ffmpegPath -Destination 'dist\ffmpeg.exe' -Force; " ^
-    "foreach ($name in @('LICENSE', 'README.txt')) { $src = Join-Path $ffmpegRoot $name; if (Test-Path $src) { Copy-Item -LiteralPath $src -Destination (Join-Path 'dist' ('ffmpeg-' + $name)) -Force } }"
+    "Copy-Item -LiteralPath $ffmpegPath -Destination 'dist\ffmpeg.exe' -Force"
 
 if errorlevel 1 (
     echo.

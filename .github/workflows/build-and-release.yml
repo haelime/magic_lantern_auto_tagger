@@ -52,15 +52,10 @@ jobs:
         $cmd = Get-Command ffmpeg -ErrorAction Stop
         $item = Get-Item $cmd.Source -Force
         $ffmpegPath = if ($item.Target) { $item.Target[0] } else { $item.FullName }
-        $ffmpegRoot = Split-Path (Split-Path $ffmpegPath -Parent) -Parent
         copy $ffmpegPath dist\ffmpeg.exe
         copy README.md dist\README.md
-        foreach ($name in @("LICENSE", "README.txt")) {
-          $src = Join-Path $ffmpegRoot $name
-          if (Test-Path $src) {
-            copy $src (Join-Path "dist" ("ffmpeg-" + $name))
-          }
-        }
+        copy ffmpeg-LICENSE dist\ffmpeg-LICENSE
+        copy ffmpeg-README.txt dist\ffmpeg-README.txt
 
     - name: Create Release Package
       run: |
